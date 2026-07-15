@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="it">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dev Timeline & Charts</title>
-    
+    <title>Ciao Vit!</title>
+
     <!-- Font da Dev -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,13 +14,19 @@
     <!-- Chart.js per generare grafici via codice -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <!-- Parser YAML e Markdown per caricare post dinamici -->
+    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Cloudflare Web Analytics -->
+    <script type='module' src='https://static.cloudflareinsights.com/beacon.min.js'
+        data-cf-beacon='{"token": "09d87c1115d94a4c995bcfd123195e2e"}'></script><!-- End Cloudflare Web Analytics -->
     <style>
         :root {
-            --bg-color: #2e3440;       
-            --text-color: #d8dee9;     
-            --accent-color: #88c0d0;   
-            --line-color: #4c566a;     
-            --card-bg: #3b4252;        
+            --bg-color: #2e3440;
+            --text-color: #d8dee9;
+            --accent-color: #88c0d0;
+            --line-color: #4c566a;
+            --card-bg: #3b4252;
         }
 
         html {
@@ -53,7 +60,7 @@
 
         header p {
             margin: 0;
-            color: #a3be8c; 
+            color: #a3be8c;
             font-size: 0.9rem;
         }
 
@@ -67,12 +74,20 @@
         .timeline-item {
             position: relative;
             margin-bottom: 50px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .timeline-item.loaded {
+            opacity: 1;
+            transform: translateY(0);
         }
 
         .timeline-item::before {
             content: '';
             position: absolute;
-            left: -41px; 
+            left: -41px;
             top: 6px;
             width: 10px;
             height: 10px;
@@ -88,7 +103,7 @@
 
         .date {
             font-size: 0.85rem;
-            color: #ebcb8b; 
+            color: #ebcb8b;
             font-weight: 700;
             margin-bottom: 8px;
         }
@@ -107,10 +122,41 @@
         }
 
         .content p {
-            margin: 0;
+            margin: 0 0 16px 0;
             font-size: 0.95rem;
             line-height: 1.6;
             color: #e5e9f0;
+        }
+
+        .content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .content h3 {
+            color: var(--accent-color);
+            margin: 24px 0 12px 0;
+            font-size: 1.1rem;
+        }
+
+        .content ul,
+        .content ol {
+            margin: 0 0 16px 0;
+            padding-left: 20px;
+        }
+
+        .content li {
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #e5e9f0;
+        }
+
+        .content code {
+            background-color: rgba(0, 0, 0, 0.25);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
         }
 
         /* Container per il grafico autogenerato */
@@ -118,7 +164,8 @@
             margin-top: 20px;
             position: relative;
             width: 100%;
-            height: 220px; /* Altezza compatta per la timeline */
+            height: 220px;
+            /* Altezza compatta per la timeline */
         }
 
         .tags {
@@ -136,8 +183,108 @@
             border-radius: 4px;
             border: 1px solid rgba(136, 192, 208, 0.2);
         }
+
+        /* Contenitore testo espandibile */
+        .content-body {
+            position: relative;
+            max-height: none;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .content-body.collapsed {
+            max-height: 200px;
+            cursor: pointer;
+        }
+
+        /* Gradiente di dissolvenza in modalità collassata */
+        .content-body.collapsed::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: linear-gradient(to bottom, rgba(59, 66, 82, 0), var(--card-bg));
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        /* Bottone per espandere/comprimere */
+        .expand-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--accent-color);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            margin: 12px 0 20px 0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(136, 192, 208, 0.2);
+            background-color: rgba(136, 192, 208, 0.05);
+            transition: all 0.2s ease;
+        }
+
+        .expand-btn:hover {
+            background-color: rgba(136, 192, 208, 0.15);
+            border-color: var(--accent-color);
+        }
+
+        /* Responsività Mobile */
+        @media (max-width: 600px) {
+            body {
+                padding: 20px 15px;
+            }
+
+            header {
+                margin-bottom: 30px;
+            }
+
+            header h1 {
+                font-size: 1.5rem;
+            }
+
+            header p {
+                font-size: 0.8rem;
+            }
+
+            .timeline {
+                border-left: none;
+                padding-left: 0;
+                margin-left: 0;
+            }
+
+            .timeline-item {
+                margin-bottom: 30px;
+            }
+
+            .timeline-item::before {
+                display: none;
+            }
+
+            .content {
+                padding: 16px;
+            }
+
+            .content h2 {
+                font-size: 1.1rem;
+            }
+
+            .content p,
+            .content li {
+                font-size: 0.85rem;
+            }
+
+            .chart-container {
+                height: 180px;
+            }
+        }
     </style>
 </head>
+
 <body>
 
     <div class="container">
@@ -150,48 +297,84 @@
     </div>
 
     <script>
-        // Il tuo JSON potenziato. Se inserisci l'oggetto 'grafico', genera il grafico a barre o linee.
-        const esperienze = [
-{
-                data: "Luglio 2026",
-                titolo: "3 Weekend fuori dalla Comfort Zone: L'illusione dell'AI e il bivio Cloud Architect",
-                descrizione: `Nell'ultimo anno mi sono diviso tra il ruolo di Scrum Master e lo sviluppo RPA, muovendomi spesso nel mondo dei dati 'a valle' con Denodo e PowerBI. Ebbene tre weekend fa ho deciso di accettare una sfida diversa. Un amico si era incagliato usando Claude su un modello finanziario e ho colto il pretesto per sviluppare <strong>CASHEN</strong>: una serie di container Docker su una VPS economica gestiti tramite crontab per fare analisi tecnica e inviare un report settimanale su un gruppo Telegram.<br><br>
-Intendiamoci: nulla di trascendentale o cloud-native. Ma nel 2026, usare una VPS da 3,66€ IVA inclusa ha un senso preciso: ti costringe a gestire RAM e CPU al milligrammo, affrontando logiche di Azure DevOps (pipeline, library, gestione dei secret) e Docker da zero. <br><br>
-Guardando la frammentazione del tempo speso, lo sforzo reale ha tradito le aspettative iniziali:<br><br>
-• <strong>30% - Data Engineering & XBRL SEC (Python):</strong> Gestione del parsing dei dati finanziari da EDGAR, distinguendo i report 10-Q dai 10-K per evitare il look-ahead bias.<br>
-• <strong>25% - CI/CD (Azure Pipelines) & Docker:</strong> Configurazione del deploy e isolamento degli scraper in container indipendenti su rete condivisa.<br>
-• <strong>20% - Database (PostgreSQL, Views, SQL):</strong> Uso del DB come motore logico con l'architettura degli schemi grezzi e dello schema <i>silver</i>.<br>
-• <strong>15% - API Resiliency & Rate Limiting:</strong> Gestione difensiva dei tier gratuiti tramite code database-driven.<br>
-• <strong>10% - Testing, Logging & Observability:</strong> Tracciabilità del flusso e reportistica vettoriale.<br><br>
-<u>L'illusione dell'AI: Percezione, Conoscenza, Esperienza</u><br>
-Sviluppando questo progetto e usando l'AI in maniera massiva (attraverso tool come <i>antigravity</i> dotati di skill, MCP e hooks), ho vissuto tre passaggi cognitivi accelerati:<br><br>
-1. <strong>La Percezione:</strong> L'illusione iniziale. L'AI ti spiega un argomento in modo così semplice che pensi di averlo interiorizzato. Poi vieni interpellato singolarmente e cadi dal pero letteralmente.<br>
-2. <strong>La Conoscenza:</strong> Il livello successivo, figlio dell'esposizione. Impari a lanciare un <code>docker ps -a</code> o a debuggare al volo gli errori più frequenti.<br>
-3. <strong>L'Esperienza:</strong> La sensibilità umana di chi si è fatto male. Quella che ti fa prevenire le dinamiche in sicurezza per evitarti commit fatti a caso (al quarto commit fallito di fila sulla pipeline YAML, ho scritto nei log: <i>'too many commits make Vit sad'</i>).<br><br>
-Questo è il vero punto di partenza per capire come cambierà il nostro lavoro. Spesso quando si parla di AI si invoca il metodo HITL (Human-in-the-Loop), pretendendo dall'uomo un livello di etica e controllo impareggiabile. Ma come può l'uomo fare da loop se è inesperto e si ritrova a essere un collo di bottiglia per bande di informazioni esageratamente dense?<br><br>
-Se accetti i tuoi limiti di banda sei lento; se vuoi essere sicuro hai bisogno di un'esperienza che oggi ancora non hai. Se manca un metodo discusso intimamente con se stessi, vince a mani basse la logica del <strong>'doganiere di second'ordine'</strong>: quello che fa passare tutto con un sorriso, nella speranza che non ci sia codice malevolo o fallato. Questo approccio uccide le aziende ed è difficilissimo da scovare. Servono nuovi sistemi per aiutare l'uomo in questo viaggio quantico che l'AI ci pone davanti.<br><br>
-<u>Il Bivio Futuro: Quali prossimi passi?</u><br>
-Al netto delle considerazioni filosofiche, le scelte di oggi pesano esponenzialmente sul nostro lavoro di domani. Questo viaggio nelle tubature del codice mi ha messo davanti a due strade chiare per la mia specializzazione attraverso l'ecosistema Google Cloud:<br><br>
-• <u>Data Cloud Architect:</u> Per unire il mio background sui dati (Denodo, PowerBI) alle logiche di ingestion, pulizia e strutturazione del dato su larga scala nel cloud, cavalcando quel 50% di tempo speso tra Data Engineering e Database.<br><br>
-• <u>Cloud Architect:</u> Per focalizzarmi interamente sulla progettazione di infrastrutture robuste, sicure e disaccoppiate, stimolato da quel 50% di tempo speso a lottare con Docker, reti, CI/CD e limiti hardware.<br><br>
-Tre weekend non cambiano una carriera, ma mi hanno ricordato che per governare l'AI di domani, dobbiamo smettere di fare i doganieri e ricominciare a fare esperienza.`,
-                tags: ["DataEngineering", "VPS", "Docker", "DevOps", "ContinuousLearning", "AI"],
-                grafico: {
-                    tipo: "pie", 
-                    etichette: ["Data Eng. & SEC", "CI/CD & Docker", "PostgreSQL & Views", "API Resiliency", "Testing & Logging"],
-                    dati: [30, 25, 20, 15, 10],
-                    labelLegenda: "Ripartizione tempo (%)"
-                }
-            }
-        ];
-
-        function renderTimeline() {
+        async function loadPosts() {
             const container = document.getElementById('timeline');
-            
+            try {
+                // Fetch the list of post files
+                const response = await fetch('posts.json');
+                if (!response.ok) {
+                    throw new Error(`Impossibile caricare posts.json (${response.status} ${response.statusText})`);
+                }
+                const postFiles = await response.json();
+
+                const esperienze = [];
+
+                for (const file of postFiles) {
+                    try {
+                        const postRes = await fetch(file);
+                        if (!postRes.ok) {
+                            console.error(`Impossibile recuperare il post: ${file}`);
+                            continue;
+                        }
+                        const rawText = await postRes.text();
+
+                        // Parse front-matter and markdown content
+                        let attributes = {};
+                        let body = rawText;
+
+                        if (rawText.startsWith('---')) {
+                            const secondDashIdx = rawText.indexOf('---', 3);
+                            if (secondDashIdx !== -1) {
+                                const frontMatterStr = rawText.substring(3, secondDashIdx);
+                                attributes = jsyaml.load(frontMatterStr) || {};
+                                body = rawText.substring(secondDashIdx + 3);
+                            }
+                        }
+                        const htmlContent = marked.parse(body);
+
+                        esperienze.push({
+                            data: attributes.data || attributes.date || "Senza data",
+                            titolo: attributes.titolo || attributes.title || "Senza titolo",
+                            descrizione: htmlContent,
+                            tags: attributes.tags || [],
+                            grafico: attributes.grafico || null
+                        });
+                    } catch (err) {
+                        console.error(`Errore nel processare il file ${file}:`, err);
+                    }
+                }
+
+                renderTimeline(esperienze);
+            } catch (err) {
+                console.error("Errore nel caricamento dei post:", err);
+                container.innerHTML = `
+                    <div class="timeline-item">
+                        <div class="content" style="border: 1px solid #bf616a;">
+                            <h2 style="color: #bf616a;">Errore di caricamento</h2>
+                            <p>Non è stato possibile caricare la timeline dei post. Dettaglio: ${err.message}</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderTimeline(esperienze) {
+            const container = document.getElementById('timeline');
+            if (esperienze.length === 0) {
+                container.innerHTML = `
+                    <div class="timeline-item">
+                        <div class="content">
+                            <h2>Nessun post trovato</h2>
+                            <p>Aggiungi dei file .md nella cartella dei post e aggiorna posts.json.</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
             container.innerHTML = esperienze.map((item, index) => {
-                // Se c'è un grafico nell'oggetto JSON, crea un tag <canvas> con ID univoco
-                const canvasHtml = item.grafico 
-                    ? `<div class="chart-container"><canvas id="chart-${index}"></canvas></div>` 
+                const canvasHtml = item.grafico
+                    ? `<div class="chart-container"><canvas id="chart-${index}"></canvas></div>`
                     : '';
 
                 return `
@@ -199,7 +382,8 @@ Tre weekend non cambiano una carriera, ma mi hanno ricordato che per governare l
                         <div class="date">${item.data}</div>
                         <div class="content">
                             <h2>${item.titolo}</h2>
-                            <p>${item.descrizione}</p>
+                            <div class="content-body">${item.descrizione}</div>
+                            <button class="expand-btn">// Leggi tutto</button>
                             ${canvasHtml}
                             <div class="tags">
                                 ${item.tags.map(tag => `<span class="tag">#${tag}</span>`).join('')}
@@ -209,13 +393,17 @@ Tre weekend non cambiano una carriera, ma mi hanno ricordato che per governare l
                 `;
             }).join('');
 
-            // Dopo aver creato i canvas nel DOM, inizializza Chart.js per ognuno
+            const isMobile = window.innerWidth <= 600;
+            const chartFontSize = isMobile ? 8 : 10;
+            const legendFontSize = isMobile ? 9 : 11;
+
             esperienze.forEach((item, index) => {
                 if (!item.grafico) return;
 
-                const ctx = document.getElementById(`chart-${index}`).getContext('2d');
-                
-                // Configurazione globale minimale stile Dev/Nord
+                const canvasEl = document.getElementById(`chart-${index}`);
+                if (!canvasEl) return;
+                const ctx = canvasEl.getContext('2d');
+
                 new Chart(ctx, {
                     type: item.grafico.tipo,
                     data: {
@@ -224,9 +412,9 @@ Tre weekend non cambiano una carriera, ma mi hanno ricordato che per governare l
                             label: item.grafico.labelLegenda,
                             data: item.grafico.dati,
                             backgroundColor: item.grafico.tipo === 'bar' ? 'rgba(136, 192, 208, 0.4)' : 'rgba(136, 192, 208, 0.1)',
-                            borderColor: '#88c0d0', // Azzurro pastello del tema
+                            borderColor: '#88c0d0',
                             borderWidth: 2,
-                            tension: 0.3, // Curve morbide per i grafici a linee
+                            tension: 0.3,
                             fill: true
                         }]
                     },
@@ -236,27 +424,80 @@ Tre weekend non cambiano una carriera, ma mi hanno ricordato che per governare l
                         plugins: {
                             legend: {
                                 labels: {
-                                    color: '#d8dee9', // Colore testo legenda
-                                    font: { family: 'JetBrains Mono', size: 11 }
+                                    color: '#d8dee9',
+                                    font: { family: 'JetBrains Mono', size: legendFontSize }
                                 }
                             }
                         },
                         scales: {
                             x: {
-                                grid: { color: '#4c566a' }, // Colore griglia
-                                ticks: { color: '#d8dee9', font: { family: 'JetBrains Mono', size: 10 } }
+                                grid: { color: '#4c566a' },
+                                ticks: { color: '#d8dee9', font: { family: 'JetBrains Mono', size: chartFontSize } }
                             },
                             y: {
                                 grid: { color: '#4c566a' },
-                                ticks: { color: '#d8dee9', font: { family: 'JetBrains Mono', size: 10 } }
+                                ticks: { color: '#d8dee9', font: { family: 'JetBrains Mono', size: chartFontSize } }
                             }
                         }
                     }
                 });
             });
-        }
 
-        document.addEventListener('DOMContentLoaded', renderTimeline);
+            const timelineItems = container.querySelectorAll('.timeline-item');
+            timelineItems.forEach(item => {
+                const bodyEl = item.querySelector('.content-body');
+                const btnEl = item.querySelector('.expand-btn');
+                if (!bodyEl || !btnEl) return;
+
+                if (bodyEl.scrollHeight > 200) {
+                    bodyEl.classList.add('collapsed');
+                    bodyEl.style.maxHeight = '200px';
+                    btnEl.style.display = 'inline-block';
+
+                    const toggleExpand = (e) => {
+                        e.stopPropagation();
+                        const isCollapsed = bodyEl.classList.contains('collapsed');
+                        if (isCollapsed) {
+                            // Espandi a scrollHeight completo
+                            bodyEl.style.maxHeight = bodyEl.scrollHeight + 'px';
+                            bodyEl.classList.remove('collapsed');
+                            btnEl.textContent = '// Riduci';
+
+                            const onTransitionEnd = () => {
+                                if (!bodyEl.classList.contains('collapsed')) {
+                                    bodyEl.style.maxHeight = 'none';
+                                }
+                                bodyEl.removeEventListener('transitionend', onTransitionEnd);
+                            };
+                            bodyEl.addEventListener('transitionend', onTransitionEnd);
+                        } else {
+                            bodyEl.style.maxHeight = bodyEl.scrollHeight + 'px';
+                            bodyEl.offsetHeight;
+                            bodyEl.style.maxHeight = '200px';
+                            bodyEl.classList.add('collapsed');
+                            btnEl.textContent = '// Leggi tutto';
+
+                            item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }
+                    };
+
+                    btnEl.addEventListener('click', toggleExpand);
+                    bodyEl.addEventListener('click', () => {
+                        if (bodyEl.classList.contains('collapsed')) {
+                            toggleExpand(new Event('click'));
+                        }
+                    });
+                }
+            });
+            const items = container.querySelectorAll('.timeline-item');
+            items.forEach((item, index) => {
+                setTimeout(() => {
+                    item.classList.add('loaded');
+                }, index * 100);
+            });
+        }
+        document.addEventListener('DOMContentLoaded', loadPosts);
     </script>
 </body>
+
 </html>
